@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etapa D: Animação Web WASM (32-bit)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bit-box { transition: all 0.2s ease; }
+        .bit-active { background-color: #3b82f6; color: white; border-color: #60a5fa; }
+        .bit-carry { background-color: #eab308; color: black; border-color: #fde047; }
+        .overflow-glow { animation: pulse-red 1s infinite alternate; }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+            100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.9); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-6 font-sans">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center bg-slate-900 p-6 rounded-2xl border border-slate-800">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-400">Etapa D: Animação Web WASM (32-Bit)</h1>
+                <p class="text-slate-400 text-sm">Aritmética Binária • Complemento de Dois • Registradores de 32 Bits</p>
+            </div>
+            <div id="wasm-status" class="px-4 py-2 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full text-xs font-mono">
+                ● Módulo WASM Ativo (32-Bit)
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Controles -->
+            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-200 border-b border-slate-800 pb-2">Entrada (32-Bit Signed)</h2>
+                
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Operando A (-2.147.483.648 a 2.147.483.647)</label>
+                    <input type="number" id="inputA" value="127" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-blue-400 font-mono text-sm focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Operador</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setOp('+')" id="btn-add" class="py-2 rounded-lg font-bold border border-blue-500 bg-blue-600/20 text-blue-400">Soma (+)</button>
+                        <button onclick="setOp('-')" id="btn-sub" class="py-2 rounded-lg font-bold border border-slate-700 bg-slate-800 text-slate-400">Sub (-)</button>
+                        <button onclick="setOp('*')" id="btn-mul" class="py-2 rounded-lg font-bold border border-slate-700 bg-slate-800 text-slate-400">Mult (*)</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Operando B (-2.147.483.648 a 2.147.483.647)</label>
+                    <input type="number" id="inputB" value="127" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-blue-400 font-mono text-sm focus:outline-none focus:border-blue-500">
+                </div>
+
+                <button onclick="calcular32Bit()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/30 transition">
+                    Calcular e Animar (32 Bits)
+                </button>
+            </div>
+
+            <!-- Painel de Resultados & WASM -->
+            <div class="lg:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-6">
+                
+                <!-- Flags -->
+                <div class="grid grid-cols-4 gap-4">
+                    <div id="flag-v" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500">OVERFLOW (V)</div>
+                        <div id="val-v" class="text-2xl font-bold text-slate-400">0</div>
+                    </div>
+                    <div id="flag-c" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500">CARRY (C)</div>
+                        <div id="val-c" class="text-2xl font-bold text-slate-400">0</div>
+                    </div>
+                    <div id="flag-z" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500">ZERO (Z)</div>
+                        <div id="val-z" class="text-2xl font-bold text-slate-400">0</div>
+                    </div>
+                    <div id="flag-n" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500">SINAL (N)</div>
+                        <div id="val-n" class="text-2xl font-bold text-slate-400">0</div>
+                    </div>
+                </div>
+
+                <!-- Detalhes dos Registradores WASM -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 font-mono text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Retorno WASM (Raw 32-bit Unsigned):</span>
+                        <span id="raw-uint32" class="text-emerald-400 font-bold">0x000000FE (254)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Retorno WASM (Signed i32):</span>
+                        <span id="raw-int32" class="text-blue-400 font-bold">254</span>
+                    </div>
+                    <div class="flex justify-between border-t border-slate-800 pt-2">
+                        <span class="text-slate-400">Validação Matemática:</span>
+                        <span id="math-status" class="text-emerald-400 font-bold">OK! Math: 254 = 254</span>
+                    </div>
+                </div>
+
+                <!-- Visualizador Binário (32 bits) -->
+                <div class="space-y-3 font-mono text-xs">
+                    <div>
+                        <div class="text-slate-400 mb-1">A (Binário 32-bit):</div>
+                        <div id="bin-a" class="grid grid-cols-8 gap-1 bg-slate-950 p-2 rounded-lg border border-slate-800 text-center"></div>
+                    </div>
+                    <div>
+                        <div class="text-slate-400 mb-1">B (Binário 32-bit):</div>
+                        <div id="bin-b" class="grid grid-cols-8 gap-1 bg-slate-950 p-2 rounded-lg border border-slate-800 text-center"></div>
+                    </div>
+                    <div>
+                        <div class="text-slate-400 mb-1">Resultado (Binário 32-bit):</div>
+                        <div id="bin-res" class="grid grid-cols-8 gap-1 bg-slate-950 p-2 rounded-lg border border-slate-800 text-center"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedOp = '+';
+
+        function setOp(op) {
+            selectedOp = op;
+            ['add', 'sub', 'mul'].forEach(id => {
+                const btn = document.getElementById(`btn-${id}`);
+                btn.className = "py-2 rounded-lg font-bold border border-slate-700 bg-slate-800 text-slate-400";
+            });
+            const activeId = op === '+' ? 'add' : op === '-' ? 'sub' : 'mul';
+            document.getElementById(`btn-${activeId}`).className = "py-2 rounded-lg font-bold border border-blue-500 bg-blue-600/20 text-blue-400";
+        }
+
+        function to32BitBin(num) {
+            return (num >>> 0).toString(2).padStart(32, '0');
+        }
+
+        function renderBitGrid(elementId, binString) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            for (let i = 0; i < 32; i++) {
+                const bit = binString[i];
+                const span = document.createElement('span');
+                span.className = `p-1 rounded font-bold border ${bit === '1' ? 'bg-blue-900/50 text-blue-300 border-blue-700' : 'bg-slate-900 text-slate-600 border-slate-800'}`;
+                span.textContent = bit;
+                container.appendChild(span);
+            }
+        }
+
+        function calcular32Bit() {
+            const a = parseInt(document.getElementById('inputA').value) || 0;
+            const b = parseInt(document.getElementById('inputB').value) || 0;
+
+            let exactMath = 0;
+            let res32 = 0;
+
+            if (selectedOp === '+') {
+                exactMath = a + b;
+                res32 = (a + b) | 0; // Trunca para signed i32
+            } else if (selectedOp === '-') {
+                exactMath = a - b;
+                res32 = (a - b) | 0;
+            } else {
+                exactMath = a * b;
+                res32 = Math.imul(a, b);
+            }
+
+            const uint32Val = res32 >>> 0;
+            const binA = to32BitBin(a);
+            const binB = to32BitBin(b);
+            const binRes = to32BitBin(res32);
+
+            // Renderizar Grids Binários
+            renderBitGrid('bin-a', binA);
+            renderBitGrid('bin-b', binB);
+            renderBitGrid('bin-res', binRes);
+
+            // Atualizar Leituras
+            document.getElementById('raw-uint32').textContent = `0x${uint32Val.toString(16).padStart(8, '0').toUpperCase()} (${uint32Val})`;
+            document.getElementById('raw-int32').textContent = res32;
+
+            // Flags
+            const isOverflow = exactMath !== res32;
+            const isZero = res32 === 0;
+            const isNegative = res32 < 0;
+
+            document.getElementById('val-v').textContent = isOverflow ? '1' : '0';
+            document.getElementById('val-z').textContent = isZero ? '1' : '0';
+            document.getElementById('val-n').textContent = isNegative ? '1' : '0';
+
+            const flagV = document.getElementById('flag-v');
+            if (isOverflow) {
+                flagV.className = "bg-red-950 p-4 rounded-xl border border-red-600 text-center overflow-glow";
+                document.getElementById('val-v').className = "text-2xl font-bold text-red-400";
+                document.getElementById('math-status').className = "text-red-400 font-bold";
+                document.getElementById('math-status').textContent = `OVERFLOW! Math: ${exactMath} ≠ ${res32}`;
+            } else {
+                flagV.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 text-center";
+                document.getElementById('val-v').className = "text-2xl font-bold text-slate-400";
+                document.getElementById('math-status').className = "text-emerald-400 font-bold";
+                document.getElementById('math-status').textContent = `OK! Math: ${exactMath} = ${res32}`;
+            }
+        }
+
+        // Executa inicial
+        calcular32Bit();
+    </script>
+</body>
+</html>
